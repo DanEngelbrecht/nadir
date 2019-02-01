@@ -277,7 +277,7 @@ namespace nadir
 
     long AtomicAdd32(TAtomic32* value, long amount)
     {
-        return __sync_fetch_and_add(value, amount);
+        return __sync_fetch_and_add(value, amount) + amount;
     }
 
     size_t GetNonReentrantLockSize()
