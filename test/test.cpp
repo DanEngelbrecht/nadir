@@ -44,8 +44,8 @@ static void test_condition_variable(SCtx* )
 struct ThreadContext
 {
     ThreadContext()
-        : count(0)
-        , stop(0)
+        : stop(0)
+        , count(0)
         , condition_variable(0)
         , thread(0)
     {}

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdlib.h>
 
 namespace nadir
 {
@@ -21,7 +22,7 @@ namespace nadir
 
     void Sleep(uint64_t timeout_us);
     typedef volatile long TAtomic32;
-    int32_t AtomicAdd32(TAtomic32* value, int32_t amount);
+    long AtomicAdd32(TAtomic32* value, long amount);
 
     size_t GetNonReentrantLockSize();
     HNonReentrantLock CreateLock(void* mem);
