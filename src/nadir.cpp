@@ -151,6 +151,9 @@ namespace nadir
         pthread_t m_Handle;
         ThreadFunc m_ThreadFunc;
         void* m_ContextData;
+        HNonReentrantLock m_ExitLock;
+        HConditionVariable m_ExitConditionalVariable;
+        bool m_Exited;
     };
 
     struct NonReentrantLock
@@ -168,12 +171,16 @@ namespace nadir
     {
         Thread* thread = (Thread*)data;
         (void)thread->m_ThreadFunc(thread->m_ContextData);
+        LockNonReentrantLock(thread->m_ExitLock);
+        thread->m_Exited = true;
+        WakeAll(thread->m_ExitConditionalVariable);
+        UnlockNonReentrantLock(thread->m_ExitLock);
         return 0;
     }
 
     size_t GetThreadSize()
     {
-        return sizeof(Thread);
+        return sizeof(Thread) + GetNonReentrantLockSize() + GetConditionVariableSize();
     }
 
     HThread CreateThread(void* mem, ThreadFunc thread_func, uint32_t stack_size, void* context_data)
@@ -181,6 +188,11 @@ namespace nadir
         Thread* thread = (Thread*)mem;
         thread->m_ThreadFunc = thread_func;
         thread->m_ContextData = context_data;
+
+        uint8_t* p = (uint8_t*)mem;
+        thread->m_ExitLock = CreateLock(&p[sizeof(Thread)]);
+        thread->m_ExitConditionalVariable = CreateConditionVariable(&p[sizeof(Thread) + GetNonReentrantLockSize()], thread->m_ExitLock);
+        thread->m_Exited = false;
 
         pthread_attr_t attr;
         pthread_attr_init(&attr);
@@ -229,7 +241,21 @@ namespace nadir
         {
             return false;
         }
-        int result = ::pthread_timedjoin_np(thread->m_Handle, 0, &ts);
+        LockNonReentrantLock(thread->m_ExitLock);
+        while (!thread->m_Exited)
+        {
+            if (0 != pthread_cond_timedwait(&thread->m_ExitConditionalVariable->m_ConditionVariable, &thread->m_ExitLock->m_Mutex, &ts))
+            {
+                break;
+            }
+        }
+        bool exited = thread->m_Exited;
+        UnlockNonReentrantLock(thread->m_ExitLock);
+        if (!exited)
+        {
+            return false;
+        }
+        int result = ::pthread_join(thread->m_Handle, 0);
         if (result == 0)
         {
             thread->m_Handle = 0;
@@ -239,6 +265,8 @@ namespace nadir
 
     void DeleteThread(HThread thread)
     {
+        DeleteConditionVariable(thread->m_ExitConditionalVariable);
+        DeleteNonReentrantLock(thread->m_ExitLock);
         thread->m_Handle = 0;
     }
 
