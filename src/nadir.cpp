@@ -71,7 +71,7 @@ namespace nadir
         ::Sleep(wait_ms);
     }
 
-    int32_t AtomicAdd32(TAtomic32* value, int32_t amount)
+    long AtomicAdd32(TAtomic32* value, long amount)
     {
         return ::InterlockedAdd(value, amount);
     }
