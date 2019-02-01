@@ -144,6 +144,8 @@ namespace nadir
 #include <pthread.h>
 #include <unistd.h>
 
+#define ALIGN_SIZE(x, align)    (((x) + ((align) - 1)) & ~((align) - 1))
+
 namespace nadir
 {
     struct Thread
@@ -180,7 +182,7 @@ namespace nadir
 
     size_t GetThreadSize()
     {
-        return sizeof(Thread) + GetNonReentrantLockSize() + GetConditionVariableSize();
+        return ALIGN_SIZE(sizeof(Thread), 8) + ALIGN_SIZE(GetNonReentrantLockSize(), 8) + ALIGN_SIZE(GetConditionVariableSize(), 8);
     }
 
     HThread CreateThread(void* mem, ThreadFunc thread_func, uint32_t stack_size, void* context_data)
@@ -190,8 +192,8 @@ namespace nadir
         thread->m_ContextData = context_data;
 
         uint8_t* p = (uint8_t*)mem;
-        thread->m_ExitLock = CreateLock(&p[sizeof(Thread)]);
-        thread->m_ExitConditionalVariable = CreateConditionVariable(&p[sizeof(Thread) + GetNonReentrantLockSize()], thread->m_ExitLock);
+        thread->m_ExitLock = CreateLock(&p[ALIGN_SIZE(sizeof(Thread), 8)]);
+        thread->m_ExitConditionalVariable = CreateConditionVariable(&p[ALIGN_SIZE(sizeof(Thread), 8) + ALIGN_SIZE(GetNonReentrantLockSize(), 8)], thread->m_ExitLock);
         thread->m_Exited = false;
 
         pthread_attr_t attr;
