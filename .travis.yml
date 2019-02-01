@@ -4,6 +4,8 @@ compiler:
   - clang
 
 os:
+  - linux
+  - osx
   - windows
 
 install:
