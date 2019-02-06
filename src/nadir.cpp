@@ -184,6 +184,10 @@ namespace nadir
 #include <pthread.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <libkern/OSAtomic.h>
+#endif // __APPLE__
+
 #define ALIGN_SIZE(x, align)    (((x) + ((align) - 1)) & ~((align) - 1))
 
 namespace nadir
