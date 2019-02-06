@@ -195,6 +195,7 @@ static void test_spin_lock(SCtx* )
     nadir::LockSpinLock(spin_lock);
     nadir::UnlockSpinLock(spin_lock);
     nadir::DeleteSpinLock(spin_lock);
+    free(spin_lock);
 }
 
 TEST_BEGIN(test, main_setup, main_teardown, test_setup, test_teardown)

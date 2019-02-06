@@ -426,7 +426,7 @@ namespace nadir
 
     void DeleteSpinLock(HSpinLock spin_lock)
     {
-        pthread_spin_destroy(&spin_lock->m_Lock)
+        pthread_spin_destroy(&spin_lock->m_Lock);
     }
 
     void LockSpinLock(HSpinLock spin_lock)
