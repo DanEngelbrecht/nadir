@@ -406,7 +406,7 @@ namespace nadir
     }
 
     struct SpinLock {
-        pthread_spinlock_t m_Lock;
+        int m_Lock;
     };
 
     size_t GetSpinLockSize()
@@ -417,26 +417,33 @@ namespace nadir
     HSpinLock CreateSpinLock(void* mem)
     {
         HSpinLock spin_lock = (HSpinLock)mem;
-        if (0 != pthread_spin_init(&spin_lock->m_Lock, PTHREAD_PROCESS_PRIVATE))
-        {
-            return 0;
-        }
+        __asm__ __volatile__ ("" ::: "memory");
+        spin_lock->m_Lock = 0;
         return spin_lock;
     }
 
-    void DeleteSpinLock(HSpinLock spin_lock)
+    void DeleteSpinLock(HSpinLock )
     {
-        pthread_spin_destroy(&spin_lock->m_Lock);
     }
 
     void LockSpinLock(HSpinLock spin_lock)
     {
-        pthread_spin_lock(&spin_lock->m_Lock);
+        int* lock = &spin_lock->m_Lock;
+        while (1) {
+            int i;
+            for (i=0; i < 10000; i++) {
+                if (__sync_bool_compare_and_swap(lock, 0, 1)) {
+                    return;
+                }
+            }
+            sched_yield();
+        }
     }
 
     void UnlockSpinLock(HSpinLock spin_lock)
     {
-        pthread_spin_unlock(&spin_lock->m_Lock);
+        __asm__ __volatile__ ("" ::: "memory");
+        spin_lock->m_Lock = 0;
     }
 }
 
