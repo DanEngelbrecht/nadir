@@ -184,6 +184,10 @@ namespace nadir
 #include <pthread.h>
 #include <unistd.h>
 
+#ifdef __APPLE__
+#include <libkern/OSAtomic.h>
+#endif // __APPLE__
+
 #define ALIGN_SIZE(x, align)    (((x) + ((align) - 1)) & ~((align) - 1))
 
 namespace nadir
@@ -405,8 +409,10 @@ namespace nadir
         pthread_cond_destroy(&condition_variable->m_ConditionVariable);
     }
 
+#ifdef __APPLE__
+
     struct SpinLock {
-        int m_Lock;
+        OSSpinLock m_Lock;
     };
 
     size_t GetSpinLockSize()
@@ -417,7 +423,6 @@ namespace nadir
     HSpinLock CreateSpinLock(void* mem)
     {
         HSpinLock spin_lock = (HSpinLock)mem;
-        __asm__ __volatile__ ("" ::: "memory");
         spin_lock->m_Lock = 0;
         return spin_lock;
     }
@@ -428,23 +433,50 @@ namespace nadir
 
     void LockSpinLock(HSpinLock spin_lock)
     {
-        int* lock = &spin_lock->m_Lock;
-        while (1) {
-            int i;
-            for (i=0; i < 10000; i++) {
-                if (__sync_bool_compare_and_swap(lock, 0, 1)) {
-                    return;
-                }
-            }
-            sched_yield();
-        }
+        OSSpinLockLock(&spin_lock->m_Lock);
     }
 
     void UnlockSpinLock(HSpinLock spin_lock)
     {
-        __asm__ __volatile__ ("" ::: "memory");
-        spin_lock->m_Lock = 0;
+        OSSpinLockUnlock(&spin_lock->m_Lock);
     }
+
+#else
+
+    struct SpinLock {
+        pthread_spinlock_t m_Lock;
+    };
+
+    size_t GetSpinLockSize()
+    {
+        return sizeof(SpinLock);
+    }
+
+    HSpinLock CreateSpinLock(void* mem)
+    {
+        HSpinLock spin_lock = (HSpinLock)mem;
+        if (0 != pthread_spin_init(&spin_lock->m_Lock, 0))
+        {
+            return 0;
+        }
+        return spin_lock;
+    }
+
+    void DeleteSpinLock(HSpinLock )
+    {
+    }
+
+    void LockSpinLock(HSpinLock spin_lock)
+    {
+        pthread_spin_lock(&spin_lock->m_Lock);
+    }
+
+    void UnlockSpinLock(HSpinLock spin_lock)
+    {
+        pthread_spin_unlock(&spin_lock->m_Lock);
+    }
+#endif
+
 }
 
 #endif
