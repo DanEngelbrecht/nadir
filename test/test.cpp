@@ -188,8 +188,18 @@ static void test_many_threads(SCtx* )
     free(lock);
 }
 
+static void test_spin_lock(SCtx* )
+{
+    nadir::HSpinLock spin_lock = nadir::CreateSpinLock(malloc(nadir::GetSpinLockSize()));
+    ASSERT_TRUE(spin_lock != 0);
+    nadir::LockSpinLock(spin_lock);
+    nadir::UnlockSpinLock(spin_lock);
+    nadir::DeleteSpinLock(spin_lock);
+}
+
 TEST_BEGIN(test, main_setup, main_teardown, test_setup, test_teardown)
     TEST(test_condition_variable)
+    TEST(test_spin_lock)
     TEST(test_single_thread)
     TEST(test_many_threads)
 TEST_END(test)
