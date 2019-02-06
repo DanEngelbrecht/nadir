@@ -49,11 +49,19 @@ namespace nadir
             thread,
             0,
             0);
+        if (thread->m_Handle == INVALID_HANDLE_VALUE)
+        {
+            return 0;
+        }
         return thread;
     }
 
     bool JoinThread(HThread thread, uint64_t timeout_us)
     {
+        if (thread->m_Handle == 0)
+        {
+            return true;
+        }
         DWORD wait_ms = (timeout_us == TIMEOUT_INFINITE) ? INFINITE : (DWORD)(timeout_us / 1000);
         DWORD result = ::WaitForSingleObject(thread->m_Handle, wait_ms);
         return result == WAIT_OBJECT_0;
@@ -107,6 +115,7 @@ namespace nadir
     {
         return sizeof(ConditionVariable);
     }
+
     HConditionVariable CreateConditionVariable(void* mem, HNonReentrantLock lock)
     {
         HConditionVariable condition_variable = (HConditionVariable)mem;
@@ -136,6 +145,37 @@ namespace nadir
 
     void DeleteConditionVariable(HConditionVariable )
     {
+    }
+
+
+    struct SpinLock {
+        SRWLOCK m_Lock;
+    };
+
+    size_t GetSpinLockSize()
+    {
+        return sizeof(SpinLock);
+    }
+
+    HSpinLock CreateSpinLock(void* mem)
+    {
+        HSpinLock spin_lock = (HSpinLock)mem;
+        ::InitializeSRWLock(&spin_lock->m_Lock);
+        return spin_lock;
+    }
+
+    void DeleteSpinLock(HSpinLock )
+    {
+    }
+
+    void LockSpinLock(HSpinLock spin_lock)
+    {
+        ::AcquireSRWLockExclusive(&spin_lock->m_Lock);
+    }
+
+    void UnlockSpinLock(HSpinLock spin_lock)
+    {
+        ::ReleaseSRWLockExclusive(&spin_lock->m_Lock);
     }
 }
 
@@ -363,6 +403,47 @@ namespace nadir
     void DeleteConditionVariable(HConditionVariable condition_variable)
     {
         pthread_cond_destroy(&condition_variable->m_ConditionVariable);
+    }
+
+    struct SpinLock {
+        int m_Lock;
+    };
+
+    size_t GetSpinLockSize()
+    {
+        return sizeof(SpinLock);
+    }
+
+    HSpinLock CreateSpinLock(void* mem)
+    {
+        HSpinLock spin_lock = (HSpinLock)mem;
+        __asm__ __volatile__ ("" ::: "memory");
+        spin_lock->m_Lock = 0;
+        return spin_lock;
+    }
+
+    void DeleteSpinLock(HSpinLock )
+    {
+    }
+
+    void LockSpinLock(HSpinLock spin_lock)
+    {
+        int* lock = &spin_lock->m_Lock;
+        while (1) {
+            int i;
+            for (i=0; i < 10000; i++) {
+                if (__sync_bool_compare_and_swap(lock, 0, 1)) {
+                    return;
+                }
+            }
+            sched_yield();
+        }
+    }
+
+    void UnlockSpinLock(HSpinLock spin_lock)
+    {
+        __asm__ __volatile__ ("" ::: "memory");
+        spin_lock->m_Lock = 0;
     }
 }
 
