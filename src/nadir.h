@@ -5,6 +5,9 @@
 
 namespace nadir
 {
+    typedef void (*Assert)(const char* file, int line);
+    void SetAssert(Assert assert_func);
+
     typedef struct Thread* HThread;
 
     typedef int32_t (*ThreadFunc)(void* context_data);
@@ -37,4 +40,10 @@ namespace nadir
     bool SleepConditionVariable(HConditionVariable conditional_variable, uint64_t timeout_us);
     void DeleteConditionVariable(HConditionVariable conditional_variable);
 
+    typedef struct SpinLock* HSpinLock;
+    size_t GetSpinLockSize();
+    HSpinLock CreateSpinLock(void* mem);
+    void DeleteSpinLock(HSpinLock spin_lock);
+    void LockSpinLock(HSpinLock spin_lock);
+    void UnlockSpinLock(HSpinLock spin_lock);
 }
