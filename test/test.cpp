@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <assert.h>
 
-#define ALIGN_SIZE(x, align)    (((x) + ((align) - 1)) & ~((align) - 1))
+#define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
 
 typedef struct SCtx
 {
@@ -12,7 +12,7 @@ typedef struct SCtx
 
 static SCtx* main_setup()
 {
-    return reinterpret_cast<SCtx*>( malloc( sizeof(SCtx) ) );
+    return reinterpret_cast<SCtx*>(malloc(sizeof(SCtx)));
 }
 
 static void main_teardown(SCtx* ctx)
@@ -20,17 +20,17 @@ static void main_teardown(SCtx* ctx)
     free(ctx);
 }
 
-static void test_setup(SCtx* )
+static void test_setup(SCtx*)
 {
 }
 
-static void test_teardown(SCtx* )
+static void test_teardown(SCtx*)
 {
 }
 
-static void test_condition_variable(SCtx* )
+static void test_condition_variable(SCtx*)
 {
-    nadir::HNonReentrantLock lock = nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize()));
+    nadir::HNonReentrantLock  lock               = nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize()));
     nadir::HConditionVariable condition_variable = nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock);
     ASSERT_NE(0x0, condition_variable);
     ASSERT_TRUE(!nadir::SleepConditionVariable(condition_variable, 100));
@@ -48,7 +48,8 @@ struct ThreadContext
         , count(0)
         , condition_variable(0)
         , thread(0)
-    {}
+    {
+    }
 
     ~ThreadContext()
     {
@@ -56,9 +57,9 @@ struct ThreadContext
 
     bool CreateThread(nadir::HConditionVariable in_condition_variable, nadir::TAtomic32* in_stop)
     {
-        stop = in_stop;
+        stop               = in_stop;
         condition_variable = in_condition_variable;
-        thread = nadir::CreateThread(malloc(nadir::GetThreadSize()), ThreadContext::Execute, 0, this);
+        thread             = nadir::CreateThread(malloc(nadir::GetThreadSize()), ThreadContext::Execute, 0, this);
         return thread != 0;
     }
 
@@ -71,13 +72,13 @@ struct ThreadContext
     static int32_t Execute(void* context)
     {
         ThreadContext* t = (ThreadContext*)context;
-        while(true)
+        while (true)
         {
             if (nadir::SleepConditionVariable(t->condition_variable, nadir::TIMEOUT_INFINITE))
             {
                 if (nadir::AtomicAdd32(t->stop, -1) >= 0)
                 {
-                    t->count ++;
+                    t->count++;
                     break;
                 }
                 nadir::AtomicAdd32(t->stop, 1);
@@ -86,15 +87,15 @@ struct ThreadContext
         return 0;
     }
 
-    nadir::TAtomic32* stop;
-    uint32_t count;
+    nadir::TAtomic32*         stop;
+    uint32_t                  count;
     nadir::HConditionVariable condition_variable;
-    nadir::HThread thread;
+    nadir::HThread            thread;
 };
 
-static void test_single_thread(SCtx* )
+static void test_single_thread(SCtx*)
 {
-    nadir::TAtomic32 stop = 0;
+    nadir::TAtomic32         stop = 0;
     nadir::HNonReentrantLock lock(nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize())));
     ASSERT_NE(0x0, lock);
     nadir::HConditionVariable condition_variable(nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock));
@@ -117,9 +118,9 @@ static void test_single_thread(SCtx* )
     free(lock);
 }
 
-static void test_many_threads(SCtx* )
+static void test_many_threads(SCtx*)
 {
-    nadir::TAtomic32 stop = 0;
+    nadir::TAtomic32         stop = 0;
     nadir::HNonReentrantLock lock(nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize())));
     ASSERT_NE(0x0, lock);
     nadir::HConditionVariable condition_variable(nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock));
@@ -188,7 +189,7 @@ static void test_many_threads(SCtx* )
     free(lock);
 }
 
-static void test_spin_lock(SCtx* )
+static void test_spin_lock(SCtx*)
 {
     nadir::HSpinLock spin_lock = nadir::CreateSpinLock(malloc(nadir::GetSpinLockSize()));
     ASSERT_TRUE(spin_lock != 0);
@@ -199,8 +200,8 @@ static void test_spin_lock(SCtx* )
 }
 
 TEST_BEGIN(test, main_setup, main_teardown, test_setup, test_teardown)
-    TEST(test_condition_variable)
-    TEST(test_spin_lock)
-    TEST(test_single_thread)
-    TEST(test_many_threads)
+TEST(test_condition_variable)
+TEST(test_spin_lock)
+TEST(test_single_thread)
+TEST(test_many_threads)
 TEST_END(test)
