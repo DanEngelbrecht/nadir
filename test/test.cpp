@@ -6,33 +6,11 @@
 
 #define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
 
-typedef struct SCtx
-{
-} SCtx;
-
-static SCtx* main_setup()
-{
-    return reinterpret_cast<SCtx*>(malloc(sizeof(SCtx)));
-}
-
-static void main_teardown(SCtx* ctx)
-{
-    free(ctx);
-}
-
-static void test_setup(SCtx*)
-{
-}
-
-static void test_teardown(SCtx*)
-{
-}
-
-static void test_condition_variable(SCtx*)
+TEST(Nadir, ConditionVariable)
 {
     nadir::HNonReentrantLock  lock               = nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize()));
     nadir::HConditionVariable condition_variable = nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock);
-    ASSERT_NE(0x0, condition_variable);
+    ASSERT_NE((nadir::HConditionVariable)0x0, condition_variable);
     ASSERT_TRUE(!nadir::SleepConditionVariable(condition_variable, 100));
     nadir::WakeOne(condition_variable);
     nadir::DeleteConditionVariable(condition_variable);
@@ -93,13 +71,13 @@ struct ThreadContext
     nadir::HThread            thread;
 };
 
-static void test_single_thread(SCtx*)
+TEST(Nadir, TestSingleThread)
 {
     nadir::TAtomic32         stop = 0;
     nadir::HNonReentrantLock lock(nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize())));
-    ASSERT_NE(0x0, lock);
+    ASSERT_NE((nadir::HNonReentrantLock)0x0, lock);
     nadir::HConditionVariable condition_variable(nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock));
-    ASSERT_NE(0x0, condition_variable);
+    ASSERT_NE((nadir::HConditionVariable)0x0, condition_variable);
 
     ThreadContext thread_context;
 
@@ -118,13 +96,13 @@ static void test_single_thread(SCtx*)
     free(lock);
 }
 
-static void test_many_threads(SCtx*)
+TEST(Nadir, TestManyThreads)
 {
     nadir::TAtomic32         stop = 0;
     nadir::HNonReentrantLock lock(nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize())));
-    ASSERT_NE(0x0, lock);
+    ASSERT_NE((nadir::HNonReentrantLock)0x0, lock);
     nadir::HConditionVariable condition_variable(nadir::CreateConditionVariable(malloc(nadir::GetConditionVariableSize()), lock));
-    ASSERT_NE(0x0, condition_variable);
+    ASSERT_NE((nadir::HConditionVariable)0x0, condition_variable);
 
     static const uint32_t THREAD_COUNT = 16;
 
@@ -189,7 +167,7 @@ static void test_many_threads(SCtx*)
     free(lock);
 }
 
-static void test_spin_lock(SCtx*)
+TEST(Nadir, TestSpinLock)
 {
     nadir::HSpinLock spin_lock = nadir::CreateSpinLock(malloc(nadir::GetSpinLockSize()));
     ASSERT_TRUE(spin_lock != 0);
@@ -198,10 +176,3 @@ static void test_spin_lock(SCtx*)
     nadir::DeleteSpinLock(spin_lock);
     free(spin_lock);
 }
-
-TEST_BEGIN(test, main_setup, main_teardown, test_setup, test_teardown)
-TEST(test_condition_variable)
-TEST(test_spin_lock)
-TEST(test_single_thread)
-TEST(test_many_threads)
-TEST_END(test)
