@@ -4,6 +4,8 @@
 #include <stdio.h>
 #include <assert.h>
 
+#include "../third-party/jctest/src/jc_test.h"
+
 #define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
 
 TEST(Nadir, ConditionVariable)

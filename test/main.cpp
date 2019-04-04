@@ -1,6 +1,5 @@
 #define JC_TEST_IMPLEMENTATION
 #include "../third-party/jctest/src/jc_test.h"
-#include "test.cpp"
 
 int main(int argc, char** argv)
 {
