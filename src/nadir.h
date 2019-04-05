@@ -23,7 +23,7 @@ typedef struct ConditionVariable* HConditionVariable;
 typedef struct NonReentrantLock*  HNonReentrantLock;
 
 void                  Sleep(uint64_t timeout_us);
-typedef volatile long TAtomic32;
+typedef long volatile TAtomic32;
 long                  AtomicAdd32(TAtomic32* value, long amount);
 bool                  AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value);
 

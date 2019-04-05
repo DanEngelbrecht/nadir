@@ -85,8 +85,8 @@ long AtomicAdd32(TAtomic32* value, long amount)
 
 bool AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value)
 {
-    int32_t old_value = ::InterlockedCompareExchange(store, value, compare);
-    return old_value == compare;
+    LONG old_value = ::InterlockedCompareExchangeAcquire(store, (LONG)value, (LONG)compare);
+    return old_value == (LONG)compare;
 }
 
 size_t GetNonReentrantLockSize()
