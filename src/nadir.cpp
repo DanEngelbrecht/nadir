@@ -334,8 +334,8 @@ long AtomicAdd32(TAtomic32* value, long amount)
 
 bool AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value)
 {
-    // TODO
-    return false;
+    long old_value = __sync_val_compare_and_swap(store, (long)compare, (long)value);
+    return old_value == (long)compare;
 }
 
 size_t GetNonReentrantLockSize()
