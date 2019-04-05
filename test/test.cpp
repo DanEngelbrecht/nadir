@@ -178,3 +178,110 @@ TEST(Nadir, TestSpinLock)
     nadir::DeleteSpinLock(spin_lock);
     free(spin_lock);
 }
+
+TEST(Nadir, TestAtomicFilo)
+{
+    nadir::TAtomic32 link_array[16];
+    link_array[0] = 0;
+    nadir::TAtomic32 generation = 0;
+    Push(&generation, link_array, 1);
+    ASSERT_EQ(1, Pop(link_array));
+    ASSERT_EQ(0, Pop(link_array));
+
+    Push(&generation, link_array, 1);
+    Push(&generation, link_array, 2);
+    Push(&generation, link_array, 3);
+    ASSERT_EQ(3, Pop(link_array));
+    ASSERT_EQ(2, Pop(link_array));
+    Push(&generation, link_array, 2);
+    Push(&generation, link_array, 3);
+    ASSERT_EQ(3, Pop(link_array));
+    ASSERT_EQ(2, Pop(link_array));
+    ASSERT_EQ(1, Pop(link_array));
+    ASSERT_EQ(0, Pop(link_array));
+}
+
+TEST(Nadir, TestAtomicFiloThreads)
+{
+    static const uint16_t ENTRY_COUNT = 127;
+    nadir::TAtomic32 link_array[ENTRY_COUNT + 1];
+    nadir::TAtomic32 data_array[ENTRY_COUNT];
+    link_array[0] = 0;
+    nadir::TAtomic32 generation = 0;
+    nadir::TAtomic32 insert_count = 1;
+
+    struct FiloThread
+    {
+        static int32_t Execute(void* context)
+        {
+            FiloThread* t = (FiloThread*)context;
+            while((*t->m_InsertCount) >= 0)
+            {
+                uint16_t index = Pop(t->m_LinkArray);
+                if (index != 0)
+                {
+                    int32_t new_value = nadir::AtomicAdd32(&t->m_DataArray[index - 1], 1);
+                    if (new_value == 1)
+                    {
+                        Push(t->m_Generation, t->m_LinkArray, index);
+                    }
+                }
+            }
+            return 0;
+        }
+        nadir::TAtomic32* m_Generation;
+        nadir::TAtomic32* m_LinkArray;
+        nadir::TAtomic32* m_DataArray;
+        nadir::TAtomic32* m_InsertCount;
+        nadir::HThread m_Thread;
+    };
+
+    for (uint32_t i = 0; i < ENTRY_COUNT; ++i)
+    {
+        data_array[i] = 0;
+    }
+
+    FiloThread threads[128];
+    for (uint32_t i = 0; i < 128; ++i)
+    {
+        threads[i].m_Generation = &generation;
+        threads[i].m_LinkArray = link_array;
+        threads[i].m_DataArray = data_array;
+        threads[i].m_InsertCount = &insert_count;
+        threads[i].m_Thread = nadir::CreateThread(malloc(nadir::GetThreadSize()), FiloThread::Execute, 0, &threads[i]);
+    }
+
+    for (uint16_t i = 1; i <= ENTRY_COUNT; ++i)
+    {
+        Push(&generation, link_array, i);
+    }
+
+    uint32_t touched_count = 0;
+    do
+    {
+        touched_count = 0;
+        for (uint16_t i = 0; i < ENTRY_COUNT; ++i)
+        {
+            if (data_array[i] == 2)
+            {
+                ++touched_count;
+            }
+        }
+    } while (touched_count != ENTRY_COUNT);
+    nadir::AtomicAdd32(&insert_count, -1);
+
+    for (uint32_t i = 0; i < 128; ++i)
+    {
+        nadir::JoinThread(threads[i].m_Thread, nadir::TIMEOUT_INFINITE);
+    }
+
+    for (uint32_t i = 0; i < 128; ++i)
+    {
+        nadir::DeleteThread(threads[i].m_Thread);
+    }
+
+    for (uint32_t i = 0; i < 128; ++i)
+    {
+        free(threads[i].m_Thread);
+    }
+}
