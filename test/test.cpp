@@ -85,7 +85,7 @@ TEST(Nadir, TestSingleThread)
 
     ASSERT_TRUE(thread_context.CreateThread(condition_variable, &stop));
 
-    ASSERT_TRUE(!nadir::JoinThread(thread_context.thread, 1000));
+    ASSERT_TRUE(!nadir::JoinThread(thread_context.thread, 2000));
     nadir::AtomicAdd32(&stop, 1);
     nadir::WakeOne(condition_variable);
     ASSERT_TRUE(nadir::JoinThread(thread_context.thread, nadir::TIMEOUT_INFINITE));
@@ -147,9 +147,9 @@ TEST(Nadir, TestManyThreads)
     }
     ASSERT_TRUE(awoken == 2);
 
+    nadir::AtomicAdd32(&stop, THREAD_COUNT - awoken);
     nadir::WakeAll(condition_variable);
 
-    nadir::AtomicAdd32(&stop, THREAD_COUNT - awoken);
     for (uint32_t i = 0; i < THREAD_COUNT; ++i)
     {
         if (nadir::JoinThread(thread_context[i].thread, 1000))
