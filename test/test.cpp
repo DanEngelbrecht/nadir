@@ -184,43 +184,77 @@ static const uint32_t GENERATION_SHIFT = 23u;
 static const uint32_t INDEX_MASK       = 0x002fffffu; // We skip one bit between gen and index so 0x‭400000‬ will never be a valid
 static const uint32_t INVALID_ENTRY    = 0x00400000u;
 
-static void Init(nadir::TAtomic32* generation, nadir::TAtomic32* link_array, const uint32_t entry_count)
+typedef struct AtomicIndexPool* HAtomicIndexPool;
+
+typedef long (*AtomicAdd)(long volatile* value, long amount);
+typedef bool (*AtomicCAS)(long volatile* store, long compare, long value);
+
+struct AtomicIndexPool
 {
-    *generation = 0;
-    link_array[0] = 0;
-    for (uint32_t i = 1; i <= entry_count; ++i)
-    {
-        link_array[i] = (long)INVALID_ENTRY;
-    }
+    long volatile m_Generation;
+    AtomicAdd m_AtomicAdd;
+    AtomicCAS m_AtomicCAS;
+    long volatile m_Head[1];
+};
+
+size_t GetAtomicIndexPoolSize(uint32_t index_count)
+{
+    return sizeof(AtomicIndexPool) + sizeof(long volatile) * index_count;
 }
 
-static void Push(nadir::TAtomic32* generation, nadir::TAtomic32* link_array, uint32_t index)
+HAtomicIndexPool CreateAtomicIndexPool(void* mem, uint32_t index_count, bool fill, AtomicAdd atomic_add, AtomicCAS atomic_cas)
 {
-    uint32_t gen = (((uint32_t)nadir::AtomicAdd32(generation, 1)) << GENERATION_SHIFT) & GENERATION_MASK;
+    HAtomicIndexPool result = (HAtomicIndexPool)mem;
+    result->m_Generation = 0;
+    if (fill)
+    {
+        result->m_Head[0] = 1;
+        for (uint32_t i = 1; i < index_count; ++i)
+        {
+            result->m_Head[i] = i + 1;
+        }
+        result->m_Head[index_count] = 0;
+    }
+    else
+    {
+        for (uint32_t i = 1; i <= index_count; ++i)
+        {
+            result->m_Head[i] = (long)INVALID_ENTRY;
+        }
+        result->m_Head[0] = 0;
+    }
+    result->m_AtomicAdd = atomic_add;
+    result->m_AtomicCAS = atomic_cas;
+    return result;
+}
+
+void Push(HAtomicIndexPool pool, uint32_t index)
+{
+    uint32_t gen = (((uint32_t)pool->m_AtomicAdd(&pool->m_Generation, 1)) << GENERATION_SHIFT) & GENERATION_MASK;
     uint32_t new_head = gen | index;
 
-    uint32_t current_head = (uint32_t)link_array[0];
-    link_array[index] = (long)(current_head & INDEX_MASK);
+    uint32_t current_head = (uint32_t)pool->m_Head[0];
+    pool->m_Head[index] = (long)(current_head & INDEX_MASK);
 
-    while (!nadir::AtomicCAS32(&link_array[0], (long)current_head, (long)new_head))
+    while (!pool->m_AtomicCAS(&pool->m_Head[0], (long)current_head, (long)new_head))
     {
-        current_head = (uint32_t)link_array[0];
-        link_array[index] = (long)(current_head & INDEX_MASK);
+        current_head = (uint32_t)pool->m_Head[0];
+        pool->m_Head[index] = (long)(current_head & INDEX_MASK);
     }
 }
 
-static uint32_t Pop(nadir::TAtomic32* link_array)
+uint32_t Pop(HAtomicIndexPool pool)
 {
     while(true)
     {
-        uint32_t current_head = (uint32_t)link_array[0];
+        uint32_t current_head = (uint32_t)pool->m_Head[0];
         uint32_t head_index = current_head & INDEX_MASK;
         if (head_index == 0)
         {
             return 0;
         }
 
-        uint32_t next = (uint32_t)link_array[head_index];
+        uint32_t next = (uint32_t)pool->m_Head[head_index];
         if(next == INVALID_ENTRY)
         {
             // We have a stale head, try again
@@ -229,48 +263,22 @@ static uint32_t Pop(nadir::TAtomic32* link_array)
 
 		uint32_t new_head = (current_head & GENERATION_MASK) | next;
 
-        if (nadir::AtomicCAS32(&link_array[0], (long)current_head, (long)new_head))
+        if (pool->m_AtomicCAS(&pool->m_Head[0], (long)current_head, (long)new_head))
         {
-            link_array[head_index] = (long)INVALID_ENTRY;
+            pool->m_Head[head_index] = (long)INVALID_ENTRY;
             return head_index;
         }
     }
 }
 
-TEST(Nadir, TestAtomicFilo)
-{
-    const uint32_t entry_count = 16;
-    nadir::TAtomic32 generation = 0;
-    nadir::TAtomic32 link_array[entry_count + 1];
-    Init(&generation, link_array, entry_count);
-    Push(&generation, link_array, 1);
-    ASSERT_EQ(1u, Pop(link_array));
-    ASSERT_EQ(0u, Pop(link_array));
-
-    Push(&generation, link_array, 1);
-    Push(&generation, link_array, 2);
-    Push(&generation, link_array, 3);
-    ASSERT_EQ(3u, Pop(link_array));
-    ASSERT_EQ(2u, Pop(link_array));
-    Push(&generation, link_array, 2);
-    Push(&generation, link_array, 3);
-    ASSERT_EQ(3u, Pop(link_array));
-    ASSERT_EQ(2u, Pop(link_array));
-    ASSERT_EQ(1u, Pop(link_array));
-    ASSERT_EQ(0u, Pop(link_array));
-}
-
 TEST(Nadir, TestAtomicFiloThreads)
 {
-    #define ENTRY_BREAK_COUNT 751
-    static const uint32_t ENTRY_COUNT = 3912;
+    #define ENTRY_BREAK_COUNT 311
+    static const uint32_t ENTRY_COUNT = 391;
 
-	for (uint32_t t = 0; t < 10; ++t)
+	for (uint32_t t = 0; t < 5; ++t)
 	{
-		printf("\nPass %u", t);
-		nadir::TAtomic32 generation = 0;
-		nadir::TAtomic32 link_array[ENTRY_COUNT + 1];
-		Init(&generation, link_array, ENTRY_COUNT);
+        HAtomicIndexPool pool = CreateAtomicIndexPool(malloc(GetAtomicIndexPoolSize(ENTRY_COUNT)), ENTRY_COUNT, false, nadir::AtomicAdd32, nadir::AtomicCAS32);
 		struct Data
 		{
 			Data()
@@ -292,7 +300,7 @@ TEST(Nadir, TestAtomicFiloThreads)
 				FiloThread* t = (FiloThread*)context;
 				while ((*t->m_InsertCount) > 0)
 				{
-					uint32_t index = Pop(t->m_LinkArray);
+					uint32_t index = Pop(t->m_Pool);
 					assert(index <= t->m_EntryCount);
 					if (index != 0)
 					{
@@ -304,7 +312,7 @@ TEST(Nadir, TestAtomicFiloThreads)
 						{
 							busy_counter = nadir::AtomicAdd32(&t->m_DataArray[index - 1].m_Busy, -1);
 							assert(0 == busy_counter);
-							Push(t->m_Generation, t->m_LinkArray, index);
+							Push(t->m_Pool, index);
 						}
 						else
 						{
@@ -320,8 +328,7 @@ TEST(Nadir, TestAtomicFiloThreads)
 				return 0;
 			}
 			uint32_t m_EntryCount;
-			nadir::TAtomic32* m_Generation;
-			nadir::TAtomic32* m_LinkArray;
+			HAtomicIndexPool m_Pool;
 			Data* m_DataArray;
 			nadir::TAtomic32* m_InsertCount;
 			nadir::HThread m_Thread;
@@ -332,8 +339,7 @@ TEST(Nadir, TestAtomicFiloThreads)
 		for (uint32_t i = 0; i < THREAD_COUNT; ++i)
 		{
 			threads[i].m_EntryCount = ENTRY_COUNT;
-			threads[i].m_Generation = &generation;
-			threads[i].m_LinkArray = link_array;
+			threads[i].m_Pool = pool;
 			threads[i].m_DataArray = data_array;
 			threads[i].m_InsertCount = &insert_count;
 			threads[i].m_Thread = nadir::CreateThread(malloc(nadir::GetThreadSize()), FiloThread::Execute, 0, &threads[i]);
@@ -341,7 +347,7 @@ TEST(Nadir, TestAtomicFiloThreads)
 
 		for (uint32_t i = 1; i <= ENTRY_COUNT; ++i)
 		{
-			Push(&generation, link_array, i);
+			Push(pool, i);
 		}
 
 		uint32_t untouched_count = 0;
@@ -385,6 +391,56 @@ TEST(Nadir, TestAtomicFiloThreads)
 		{
 			free(threads[i].m_Thread);
 		}
+
+        free(pool);
 	}
     #undef ENTRY_BREAK_COUNT
 }
+
+TEST(Nadir, AtomicFilledIndexPool)
+{
+    HAtomicIndexPool pool = CreateAtomicIndexPool(malloc(GetAtomicIndexPoolSize(15)), 15, true, nadir::AtomicAdd32, nadir::AtomicCAS32);
+
+    for(uint32_t i = 1; i <= 15; ++i)
+    {
+        ASSERT_EQ(i, Pop(pool));
+    }
+
+    ASSERT_EQ(0u, Pop(pool));
+
+    for(uint32_t i = 15; i >= 1; --i)
+    {
+        Push(pool, i);
+    }
+
+    for(uint32_t i = 1; i <= 15; ++i)
+    {
+        ASSERT_EQ(i, Pop(pool));
+    }
+
+    free(pool);
+}
+
+TEST(Nadir, AtomicEmptyIndexPool)
+{
+    HAtomicIndexPool pool = CreateAtomicIndexPool(malloc(GetAtomicIndexPoolSize(16)), 16, false, nadir::AtomicAdd32, nadir::AtomicCAS32);
+
+    Push(pool, 1);
+    ASSERT_EQ(1u, Pop(pool));
+    ASSERT_EQ(0u, Pop(pool));
+
+    Push(pool, 1);
+    Push(pool, 2);
+    Push(pool, 3);
+    ASSERT_EQ(3u, Pop(pool));
+    ASSERT_EQ(2u, Pop(pool));
+    Push(pool, 2);
+    Push(pool, 3);
+    ASSERT_EQ(3u, Pop(pool));
+    ASSERT_EQ(2u, Pop(pool));
+    ASSERT_EQ(1u, Pop(pool));
+    ASSERT_EQ(0u, Pop(pool));
+
+    free(pool);
+}
+
