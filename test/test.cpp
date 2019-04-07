@@ -178,3 +178,12 @@ TEST(Nadir, TestSpinLock)
     nadir::DeleteSpinLock(spin_lock);
     free(spin_lock);
 }
+
+TEST(Nadir, TestCAS)
+{
+    nadir::TAtomic32 to_change = 711;
+    ASSERT_EQ(711, nadir::AtomicCAS32(&to_change, 710, 712));
+    ASSERT_EQ(711, nadir::AtomicCAS32(&to_change, 711, 712));
+    ASSERT_EQ(712, nadir::AtomicCAS32(&to_change, 711, 712));
+    ASSERT_EQ(712, nadir::AtomicCAS32(&to_change, 711, 713));
+}

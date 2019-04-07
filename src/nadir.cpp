@@ -83,10 +83,9 @@ long AtomicAdd32(TAtomic32* value, long amount)
     return ::InterlockedAdd(value, amount);
 }
 
-bool AtomicCAS32(TAtomic32* store, long compare, long value)
+long AtomicCAS32(TAtomic32* store, long compare, long value)
 {
-    LONG old_value = ::InterlockedCompareExchangeAcquire(store, (LONG)value, (LONG)compare);
-    return old_value == (LONG)compare;
+    return (long)::InterlockedCompareExchangeAcquire(store, (LONG)value, (LONG)compare);
 }
 
 size_t GetNonReentrantLockSize()
@@ -332,10 +331,9 @@ long AtomicAdd32(TAtomic32* value, long amount)
     return __sync_fetch_and_add(value, amount) + amount;
 }
 
-bool AtomicCAS32(TAtomic32* store, long compare, long value)
+long AtomicCAS32(TAtomic32* store, long compare, long value)
 {
-    long old_value = __sync_val_compare_and_swap(store, compare, value);
-    return old_value == compare;
+    return __sync_val_compare_and_swap(store, compare, value);
 }
 
 size_t GetNonReentrantLockSize()
