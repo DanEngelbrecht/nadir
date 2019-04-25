@@ -190,7 +190,7 @@ void UnlockSpinLock(HSpinLock spin_lock)
 #    include <unistd.h>
 
 #    ifdef __APPLE__
-#        include <libkern/OSAtomic.h>
+#        include <os/lock.h>
 #    endif // __APPLE__
 
 #    define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
@@ -423,7 +423,7 @@ void DeleteConditionVariable(HConditionVariable condition_variable)
 
 struct SpinLock
 {
-    OSSpinLock m_Lock;
+    os_unfair_lock m_Lock;
 };
 
 size_t GetSpinLockSize()
@@ -433,8 +433,8 @@ size_t GetSpinLockSize()
 
 HSpinLock CreateSpinLock(void* mem)
 {
-    HSpinLock spin_lock = (HSpinLock)mem;
-    spin_lock->m_Lock   = 0;
+    HSpinLock spin_lock                         = (HSpinLock)mem;
+    spin_lock->m_Lock._os_unfair_lock_opaque    = 0;
     return spin_lock;
 }
 
@@ -444,12 +444,12 @@ void DeleteSpinLock(HSpinLock)
 
 void LockSpinLock(HSpinLock spin_lock)
 {
-    OSSpinLockLock(&spin_lock->m_Lock);
+    os_unfair_lock_lock(&spin_lock->m_Lock);
 }
 
 void UnlockSpinLock(HSpinLock spin_lock)
 {
-    OSSpinLockUnlock(&spin_lock->m_Lock);
+    os_unfair_lock_unlock(&spin_lock->m_Lock);
 }
 
 #    else
