@@ -1,3 +1,0 @@
-[submodule "third-party/jctest"]
-	path = third-party/jctest
-	url = https://github.com/JCash/jctest.git
