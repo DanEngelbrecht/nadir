@@ -230,7 +230,7 @@ static void* ThreadStartFunction(void* data)
 
 size_t GetThreadSize()
 {
-    return ALIGN_SIZE(sizeof(Thread), 8) + ALIGN_SIZE(GetNonReentrantLockSize(), 8) + ALIGN_SIZE(GetConditionVariableSize(), 8);
+    return ALIGN_SIZE((uint32_t)sizeof(Thread), 8u) + ALIGN_SIZE((uint32_t)GetNonReentrantLockSize(), 8u) + ALIGN_SIZE((uint32_t)GetConditionVariableSize(), 8u);
 }
 
 HThread CreateThread(void* mem, ThreadFunc thread_func, uint32_t stack_size, void* context_data)
@@ -240,8 +240,8 @@ HThread CreateThread(void* mem, ThreadFunc thread_func, uint32_t stack_size, voi
     thread->m_ContextData = context_data;
 
     uint8_t* p                        = (uint8_t*)mem;
-    thread->m_ExitLock                = CreateLock(&p[ALIGN_SIZE(sizeof(Thread), 8)]);
-    thread->m_ExitConditionalVariable = CreateConditionVariable(&p[ALIGN_SIZE(sizeof(Thread), 8) + ALIGN_SIZE(GetNonReentrantLockSize(), 8)], thread->m_ExitLock);
+    thread->m_ExitLock                = CreateLock(&p[ALIGN_SIZE((uint32_t)sizeof(Thread), 8u)]);
+    thread->m_ExitConditionalVariable = CreateConditionVariable(&p[ALIGN_SIZE((uint32_t)sizeof(Thread), 8u) + ALIGN_SIZE((uint32_t)GetNonReentrantLockSize(), 8u)], thread->m_ExitLock);
     thread->m_Exited                  = false;
 
     pthread_attr_t attr;
@@ -265,10 +265,10 @@ static bool GetTimeSpec(timespec* ts, uint64_t delay_us)
     {
         return false;
     }
-    uint64_t end_ns = ts->tv_nsec + (delay_us * 1000);
-    long     wait_s = (long)(end_ns / 1000000000);
+    uint64_t end_ns = (uint64_t)(ts->tv_nsec) + (delay_us * 1000u);
+    uint64_t wait_s = end_ns / 1000000000u;
     ts->tv_sec += wait_s;
-    ts->tv_nsec = (long)(end_ns - wait_s * 1000000000);
+    ts->tv_nsec = (long)(end_ns - wait_s * 1000000000u);
     return true;
 }
 
