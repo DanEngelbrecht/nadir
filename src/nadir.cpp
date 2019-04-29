@@ -230,7 +230,7 @@ static void* ThreadStartFunction(void* data)
 
 size_t GetThreadSize()
 {
-    return ALIGN_SIZE(sizeof(Thread), 8) + ALIGN_SIZE((uint32_t)GetNonReentrantLockSize(), 8u) + ALIGN_SIZE((uint32_t)GetConditionVariableSize(), 8u);
+    return ALIGN_SIZE((uint32_t)sizeof(Thread), 8u) + ALIGN_SIZE((uint32_t)GetNonReentrantLockSize(), 8u) + ALIGN_SIZE((uint32_t)GetConditionVariableSize(), 8u);
 }
 
 HThread CreateThread(void* mem, ThreadFunc thread_func, uint32_t stack_size, void* context_data)
@@ -265,10 +265,10 @@ static bool GetTimeSpec(timespec* ts, uint64_t delay_us)
     {
         return false;
     }
-    uint64_t end_ns = (uint64_t)(ts->tv_nsec + (delay_us * 1000u));
-    long     wait_s = (long)(end_ns / 1000000000);
+    uint64_t end_ns = (uint64_t)(ts->tv_nsec) + (delay_us * 1000u);
+    uint64_t wait_s = end_ns / 1000000000u;
     ts->tv_sec += wait_s;
-    ts->tv_nsec = (long)(end_ns - wait_s * 1000000000);
+    ts->tv_nsec = (long)(end_ns - wait_s * 1000000000u);
     return true;
 }
 
