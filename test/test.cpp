@@ -6,8 +6,6 @@
 
 #include "../third-party/jctest/src/jc_test.h"
 
-#define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
-
 TEST(Nadir, ConditionVariable)
 {
     nadir::HNonReentrantLock  lock               = nadir::CreateLock(malloc(nadir::GetNonReentrantLockSize()));
@@ -147,7 +145,7 @@ TEST(Nadir, TestManyThreads)
     }
     ASSERT_TRUE(awoken == 2);
 
-    nadir::AtomicAdd32(&stop, THREAD_COUNT - awoken);
+    nadir::AtomicAdd32(&stop, (long)(THREAD_COUNT - awoken));
     nadir::WakeAll(condition_variable);
 
     for (uint32_t i = 0; i < THREAD_COUNT; ++i)
