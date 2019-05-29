@@ -145,7 +145,7 @@ TEST(Nadir, TestManyThreads)
     }
     ASSERT_TRUE(awoken == 2);
 
-    nadir::AtomicAdd32(&stop, (long)(THREAD_COUNT - awoken));
+    nadir::AtomicAdd32(&stop, (int32_t)(THREAD_COUNT - awoken));
     nadir::WakeAll(condition_variable);
 
     for (uint32_t i = 0; i < THREAD_COUNT; ++i)

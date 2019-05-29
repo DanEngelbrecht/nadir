@@ -78,14 +78,14 @@ void Sleep(uint64_t timeout_us)
     ::Sleep(wait_ms);
 }
 
-long AtomicAdd32(TAtomic32* value, long amount)
+int32_t AtomicAdd32(TAtomic32* value, int32_t amount)
 {
-    return ::InterlockedAdd(value, amount);
+    return ::InterlockedAdd((LONG volatile*)value, amount);
 }
 
-long AtomicCAS32(TAtomic32* store, long compare, long value)
+int32_t AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value)
 {
-    return (long)::InterlockedCompareExchangeAcquire(store, (LONG)value, (LONG)compare);
+    return (int32_t)::InterlockedCompareExchangeAcquire((LONG volatile*)store, (LONG)value, (LONG)compare);
 }
 
 size_t GetNonReentrantLockSize()
@@ -326,12 +326,12 @@ void Sleep(uint64_t timeout_us)
     ::usleep((useconds_t)timeout_us);
 }
 
-long AtomicAdd32(TAtomic32* value, long amount)
+int32_t AtomicAdd32(TAtomic32* value, int32_t amount)
 {
     return __sync_fetch_and_add(value, amount) + amount;
 }
 
-long AtomicCAS32(TAtomic32* store, long compare, long value)
+int32_t AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value)
 {
     return __sync_val_compare_and_swap(store, compare, value);
 }
