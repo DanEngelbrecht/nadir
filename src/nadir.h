@@ -22,10 +22,11 @@ static const uint64_t TIMEOUT_INFINITE = ((uint64_t)-1);
 typedef struct ConditionVariable* HConditionVariable;
 typedef struct NonReentrantLock*  HNonReentrantLock;
 
-void                  Sleep(uint64_t timeout_us);
-typedef long volatile TAtomic32;
-long                  AtomicAdd32(TAtomic32* value, long amount);
-long                  AtomicCAS32(TAtomic32* store, long compare, long value);
+void    Sleep(uint64_t timeout_us);
+
+typedef int32_t volatile TAtomic32;
+int32_t                  AtomicAdd32(TAtomic32* value, int32_t amount);
+int32_t                  AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value);
 
 size_t            GetNonReentrantLockSize();
 HNonReentrantLock CreateLock(void* mem);
