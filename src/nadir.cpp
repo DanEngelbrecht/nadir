@@ -192,10 +192,10 @@ size_t GetSemaSize()
     return sizeof(Sema);
 }
 
-HSema CreateSema(void* mem, unsigned int initial_count, unsigned int max_count)
+HSema CreateSema(void* mem, unsigned int initial_count)
 {
     HSema semaphore = (HSema)mem;
-    semaphore->m_Handle = ::CreateSemaphore(NULL, initial_count, max_count, NULL);
+    semaphore->m_Handle = ::CreateSemaphore(NULL, initial_count, 0x7fffffff, NULL);
     if (semaphore->m_Handle == INVALID_HANDLE_VALUE)
     {
         return 0;
@@ -231,6 +231,7 @@ void DeleteSema(HSema semaphore)
 
 #    ifdef __APPLE__
 #        include <os/lock.h>
+#        include <dispatch/dispatch.h>
 #    endif // __APPLE__
 
 #    define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
@@ -492,6 +493,50 @@ void UnlockSpinLock(HSpinLock spin_lock)
     os_unfair_lock_unlock(&spin_lock->m_Lock);
 }
 
+struct Sema
+{
+    dispatch_semaphore_t    m_Semaphore;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, unsigned int initial_count)
+{
+    HSema semaphore = (HSema)mem;
+    semaphore->m_Semaphore = dispatch_semaphore_create(initial_count);
+    if (semaphore->m_Semaphore == 0)
+    {
+        return 0;
+    }
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    while (count--)
+    {
+        dispatch_semaphore_signal(semaphore->m_Semaphore);
+    }
+    return true;
+}
+
+bool WaitSema(HSema semaphore)
+{
+    if (0 != dispatch_semaphore_wait(semaphore->m_Semaphore, DISPATCH_TIME_FOREVER))
+    {
+        return false;
+    }
+    return true;
+}
+
+void DeleteSema(HSema semaphore)
+{
+    dispatch_release(semaphore->m_Semaphore);
+}
+
 #    else
 
 struct SpinLock
@@ -527,12 +572,10 @@ void UnlockSpinLock(HSpinLock spin_lock)
 {
     pthread_spin_unlock(&spin_lock->m_Lock);
 }
-#    endif
 
 struct Sema
 {
     sem_t           m_Semaphore;
-    unsigned int    m_Max;
 };
 
 size_t GetSemaSize()
@@ -540,28 +583,18 @@ size_t GetSemaSize()
     return sizeof(Sema);
 }
 
-HSema CreateSema(void* mem, unsigned int initial_count, unsigned int max_count)
+HSema CreateSema(void* mem, unsigned int initial_count)
 {
     HSema semaphore = (HSema)mem;
-    if (0 != sem_init(&semaphore->m_Semaphore, 0, (unsigned int)initial_count))
+    if (0 != sem_init(&semaphore->m_Semaphore, 0, initial_count))
     {
         return 0;
     }
-    semaphore->m_Max = max_count;
     return semaphore;
 }
 
 bool PostSema(HSema semaphore, unsigned int count)
 {
-    int current = 0;
-    if (0 != sem_getvalue(&semaphore->m_Semaphore, &current))
-    {
-        return false;
-    }
-    if ((current + (int)count) > (int)semaphore->m_Max)
-    {
-        return false;
-    }
     while (count--)
     {
         if (0 != sem_post(&semaphore->m_Semaphore))
@@ -585,6 +618,8 @@ void DeleteSema(HSema semaphore)
 {
     sem_destroy(&semaphore->m_Semaphore);
 }
+
+#    endif
 
 } // namespace nadir
 

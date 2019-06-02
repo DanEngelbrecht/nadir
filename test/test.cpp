@@ -188,11 +188,10 @@ TEST(Nadir, TestCAS)
 
 TEST(Nadir, Semaphore)
 {
-    nadir::HSema semaphore = nadir::CreateSema(malloc(nadir::GetSemaSize()), 1, 2);
+    nadir::HSema semaphore = nadir::CreateSema(malloc(nadir::GetSemaSize()), 1);
     ASSERT_TRUE(semaphore != 0);
     ASSERT_TRUE(nadir::WaitSema(semaphore));
     ASSERT_TRUE(nadir::PostSema(semaphore, 2));
-    ASSERT_FALSE(nadir::PostSema(semaphore, 1));
     ASSERT_TRUE(nadir::WaitSema(semaphore));
     ASSERT_TRUE(nadir::WaitSema(semaphore));
     nadir::DeleteSema(semaphore);
