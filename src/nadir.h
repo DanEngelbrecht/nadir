@@ -19,21 +19,20 @@ void    DeleteThread(HThread thread);
 
 static const uint64_t TIMEOUT_INFINITE = ((uint64_t)-1);
 
-typedef struct ConditionVariable* HConditionVariable;
-typedef struct NonReentrantLock*  HNonReentrantLock;
-
 void    Sleep(uint64_t timeout_us);
 
 typedef int32_t volatile TAtomic32;
 int32_t                  AtomicAdd32(TAtomic32* value, int32_t amount);
 int32_t                  AtomicCAS32(TAtomic32* store, int32_t compare, int32_t value);
 
+typedef struct NonReentrantLock*  HNonReentrantLock;
 size_t            GetNonReentrantLockSize();
 HNonReentrantLock CreateLock(void* mem);
 void              LockNonReentrantLock(HNonReentrantLock lock);
 void              UnlockNonReentrantLock(HNonReentrantLock lock);
 void              DeleteNonReentrantLock(HNonReentrantLock lock);
 
+typedef struct ConditionVariable* HConditionVariable;
 size_t             GetConditionVariableSize();
 HConditionVariable CreateConditionVariable(void* mem, HNonReentrantLock lock);
 void               WakeOne(HConditionVariable conditional_variable);
@@ -42,10 +41,17 @@ bool               SleepConditionVariable(HConditionVariable conditional_variabl
 void               DeleteConditionVariable(HConditionVariable conditional_variable);
 
 typedef struct SpinLock* HSpinLock;
-size_t                   GetSpinLockSize();
-HSpinLock                CreateSpinLock(void* mem);
-void                     DeleteSpinLock(HSpinLock spin_lock);
-void                     LockSpinLock(HSpinLock spin_lock);
-void                     UnlockSpinLock(HSpinLock spin_lock);
+size_t      GetSpinLockSize();
+HSpinLock   CreateSpinLock(void* mem);
+void        DeleteSpinLock(HSpinLock spin_lock);
+void        LockSpinLock(HSpinLock spin_lock);
+void        UnlockSpinLock(HSpinLock spin_lock);
+
+typedef struct Sema* HSema;
+size_t      GetSemaSize();
+HSema       CreateSema(void* mem, unsigned int initial_count, unsigned int max_count);
+bool        PostSema(HSema semaphore, unsigned int count);
+bool        WaitSema(HSema semaphore);
+void        DeleteSema(HSema semaphore);
 
 } // namespace nadir

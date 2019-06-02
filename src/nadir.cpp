@@ -182,12 +182,52 @@ void UnlockSpinLock(HSpinLock spin_lock)
     ::ReleaseSRWLockExclusive(&spin_lock->m_Lock);
 }
 
+struct Sema
+{
+    HANDLE m_Handle;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, unsigned int initial_count, unsigned int max_count)
+{
+    HSema semaphore = (HSema)mem;
+    semaphore->m_Handle = ::CreateSemaphore(NULL, initial_count, max_count, NULL);
+    if (semaphore->m_Handle == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    return 0 != ::ReleaseSemaphore(
+                    semaphore->m_Handle,
+                    count,
+                    NULL);
+}
+
+bool WaitSema(HSema semaphore)
+{
+    return WAIT_OBJECT_0 == ::WaitForSingleObject(semaphore->m_Handle, 0);
+}
+
+void DeleteSema(HSema semaphore)
+{
+    ::CloseHandle(semaphore->m_Handle);
+}
+
 } // namespace nadir
 
 #else
 
 #    include <pthread.h>
 #    include <unistd.h>
+#    include <semaphore.h>
 
 #    ifdef __APPLE__
 #        include <os/lock.h>
@@ -488,6 +528,63 @@ void UnlockSpinLock(HSpinLock spin_lock)
     pthread_spin_unlock(&spin_lock->m_Lock);
 }
 #    endif
+
+struct Sema
+{
+    sem_t m_Semaphore;
+    int   m_Max;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, unsigned int initial_count, unsigned int max_count)
+{
+    HSema semaphore = (HSema)mem;
+    if (0 != sem_init(&semaphore->m_Semaphore, 0, (int)initial_count)
+    {
+        return 0;
+    }
+    semaphore->m_Max = (int)max_value;
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    int current = 0;
+    if (0 != sem_getvalue(&semaphore->m_Handle, &current))
+    {
+        return false;
+    }
+    if (current + count > semaphore->m_Max)
+    {
+        return false;
+    }
+    while (count--)
+    {
+        if (0 != sem_post(semaphore->m_Handle))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool WaitSema(HSema semaphore)
+{
+    if (0 != sem_wait(&semaphore->m_Semaphore))
+    {
+        return false;
+    }
+    return true;
+}
+
+void DeleteSema(HSema semaphore)
+{
+    sem_destroy(&semaphore->m_Semaphore);
+}
 
 } // namespace nadir
 
