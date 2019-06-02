@@ -525,7 +525,7 @@ bool PostSema(HSema semaphore, unsigned int count)
 
 bool WaitSema(HSema semaphore)
 {
-    if (0 != dispatch_semaphore_wait(semaphore->m_Semaphore, DISPATCH_TIME_FOREVER))
+    if (0 != dispatch_semaphore_wait(semaphore->m_Semaphore, (dispatch_time_t)-1))
     {
         return false;
     }
