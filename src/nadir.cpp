@@ -531,8 +531,8 @@ void UnlockSpinLock(HSpinLock spin_lock)
 
 struct Sema
 {
-    sem_t m_Semaphore;
-    int   m_Max;
+    sem_t           m_Semaphore;
+    unsigned int    m_Max;
 };
 
 size_t GetSemaSize()
@@ -543,28 +543,28 @@ size_t GetSemaSize()
 HSema CreateSema(void* mem, unsigned int initial_count, unsigned int max_count)
 {
     HSema semaphore = (HSema)mem;
-    if (0 != sem_init(&semaphore->m_Semaphore, 0, (int)initial_count)
+    if (0 != sem_init(&semaphore->m_Semaphore, 0, (unsigned int)initial_count))
     {
         return 0;
     }
-    semaphore->m_Max = (int)max_value;
+    semaphore->m_Max = max_count;
     return semaphore;
 }
 
 bool PostSema(HSema semaphore, unsigned int count)
 {
     int current = 0;
-    if (0 != sem_getvalue(&semaphore->m_Handle, &current))
+    if (0 != sem_getvalue(&semaphore->m_Semaphore, &current))
     {
         return false;
     }
-    if (current + count > semaphore->m_Max)
+    if ((current + (int)count) > (int)semaphore->m_Max)
     {
         return false;
     }
     while (count--)
     {
-        if (0 != sem_post(semaphore->m_Handle))
+        if (0 != sem_post(&semaphore->m_Semaphore))
         {
             return false;
         }
