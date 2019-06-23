@@ -49,7 +49,7 @@ void        UnlockSpinLock(HSpinLock spin_lock);
 
 typedef struct Sema* HSema;
 size_t      GetSemaSize();
-HSema       CreateSema(void* mem, unsigned int initial_count);
+HSema       CreateSema(void* mem, int initial_count);
 bool        PostSema(HSema semaphore, unsigned int count);
 bool        WaitSema(HSema semaphore);
 void        DeleteSema(HSema semaphore);

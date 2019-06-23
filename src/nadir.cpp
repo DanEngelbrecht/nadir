@@ -192,7 +192,7 @@ size_t GetSemaSize()
     return sizeof(Sema);
 }
 
-HSema CreateSema(void* mem, unsigned int initial_count)
+HSema CreateSema(void* mem, int initial_count)
 {
     HSema semaphore = (HSema)mem;
     semaphore->m_Handle = ::CreateSemaphore(NULL, initial_count, 0x7fffffff, NULL);
@@ -507,7 +507,7 @@ size_t GetSemaSize()
     return sizeof(Sema);
 }
 
-HSema CreateSema(void* mem, unsigned int initial_count)
+HSema CreateSema(void* mem, int initial_count)
 {
     HSema semaphore = (HSema)mem;
 
@@ -595,10 +595,10 @@ size_t GetSemaSize()
     return sizeof(Sema);
 }
 
-HSema CreateSema(void* mem, unsigned int initial_count)
+HSema CreateSema(void* mem, int initial_count)
 {
     HSema semaphore = (HSema)mem;
-    if (0 != sem_init(&semaphore->m_Semaphore, 0, initial_count))
+    if (0 != sem_init(&semaphore->m_Semaphore, 0, (unsigned int)initial_count))
     {
         return 0;
     }
