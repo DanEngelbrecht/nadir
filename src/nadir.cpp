@@ -232,6 +232,10 @@ void DeleteSema(HSema semaphore)
 #    ifdef __APPLE__
 #        include <os/lock.h>
 #        include <dispatch/dispatch.h>
+#        include <mach/mach_init.h>
+#        include <mach/mach_error.h>
+#        include <mach/semaphore.h>
+#        include <mach/task.h>
 #    endif // __APPLE__
 
 #    define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
@@ -495,7 +499,7 @@ void UnlockSpinLock(HSpinLock spin_lock)
 
 struct Sema
 {
-    dispatch_semaphore_t    m_Semaphore;
+    semaphore_t m_Semaphore;
 };
 
 size_t GetSemaSize()
@@ -506,11 +510,15 @@ size_t GetSemaSize()
 HSema CreateSema(void* mem, unsigned int initial_count)
 {
     HSema semaphore = (HSema)mem;
-    semaphore->m_Semaphore = dispatch_semaphore_create(initial_count);
-    if (semaphore->m_Semaphore == 0)
+
+    mach_port_t self = mach_task_self();
+    kern_return_t ret = semaphore_create(self, &semaphore->m_Semaphore, SYNC_POLICY_FIFO, 0);
+
+    if (ret != KERN_SUCCESS)
     {
         return 0;
     }
+
     return semaphore;
 }
 
@@ -518,14 +526,17 @@ bool PostSema(HSema semaphore, unsigned int count)
 {
     while (count--)
     {
-        dispatch_semaphore_signal(semaphore->m_Semaphore);
+        if (KERN_SUCCESS != semaphore_signal(semaphore->m_Semaphore))
+        {
+            return false;
+        }
     }
     return true;
 }
 
 bool WaitSema(HSema semaphore)
 {
-    if (0 != dispatch_semaphore_wait(semaphore->m_Semaphore, (dispatch_time_t)-1))
+    if (KERN_SUCCESS != semaphore_wait(semaphore->m_Semaphore))
     {
         return false;
     }
@@ -534,7 +545,8 @@ bool WaitSema(HSema semaphore)
 
 void DeleteSema(HSema semaphore)
 {
-    dispatch_release(semaphore->m_Semaphore);
+    mach_port_t self = mach_task_self();
+    semaphore_destroy(self, &semaphore->m_Semaphore);
 }
 
 #    else
