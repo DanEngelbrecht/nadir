@@ -182,15 +182,60 @@ void UnlockSpinLock(HSpinLock spin_lock)
     ::ReleaseSRWLockExclusive(&spin_lock->m_Lock);
 }
 
+struct Sema
+{
+    HANDLE m_Handle;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, int initial_count)
+{
+    HSema semaphore = (HSema)mem;
+    semaphore->m_Handle = ::CreateSemaphore(NULL, initial_count, 0x7fffffff, NULL);
+    if (semaphore->m_Handle == INVALID_HANDLE_VALUE)
+    {
+        return 0;
+    }
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    return 0 != ::ReleaseSemaphore(
+                    semaphore->m_Handle,
+                    count,
+                    NULL);
+}
+
+bool WaitSema(HSema semaphore)
+{
+    return WAIT_OBJECT_0 == ::WaitForSingleObject(semaphore->m_Handle, 0);
+}
+
+void DeleteSema(HSema semaphore)
+{
+    ::CloseHandle(semaphore->m_Handle);
+}
+
 } // namespace nadir
 
 #else
 
 #    include <pthread.h>
 #    include <unistd.h>
+#    include <semaphore.h>
 
 #    ifdef __APPLE__
 #        include <os/lock.h>
+#        include <dispatch/dispatch.h>
+#        include <mach/mach_init.h>
+#        include <mach/mach_error.h>
+#        include <mach/semaphore.h>
+#        include <mach/task.h>
 #    endif // __APPLE__
 
 #    define ALIGN_SIZE(x, align) (((x) + ((align)-1)) & ~((align)-1))
@@ -452,6 +497,58 @@ void UnlockSpinLock(HSpinLock spin_lock)
     os_unfair_lock_unlock(&spin_lock->m_Lock);
 }
 
+struct Sema
+{
+    semaphore_t m_Semaphore;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, int initial_count)
+{
+    HSema semaphore = (HSema)mem;
+
+    mach_port_t self = mach_task_self();
+    kern_return_t ret = semaphore_create(self, &semaphore->m_Semaphore, SYNC_POLICY_FIFO, initial_count);
+
+    if (ret != KERN_SUCCESS)
+    {
+        return 0;
+    }
+
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    while (count--)
+    {
+        if (KERN_SUCCESS != semaphore_signal(semaphore->m_Semaphore))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool WaitSema(HSema semaphore)
+{
+    if (KERN_SUCCESS != semaphore_wait(semaphore->m_Semaphore))
+    {
+        return false;
+    }
+    return true;
+}
+
+void DeleteSema(HSema semaphore)
+{
+    mach_port_t self = mach_task_self();
+    semaphore_destroy(self, semaphore->m_Semaphore);
+}
+
 #    else
 
 struct SpinLock
@@ -487,6 +584,53 @@ void UnlockSpinLock(HSpinLock spin_lock)
 {
     pthread_spin_unlock(&spin_lock->m_Lock);
 }
+
+struct Sema
+{
+    sem_t           m_Semaphore;
+};
+
+size_t GetSemaSize()
+{
+    return sizeof(Sema);
+}
+
+HSema CreateSema(void* mem, int initial_count)
+{
+    HSema semaphore = (HSema)mem;
+    if (0 != sem_init(&semaphore->m_Semaphore, 0, (unsigned int)initial_count))
+    {
+        return 0;
+    }
+    return semaphore;
+}
+
+bool PostSema(HSema semaphore, unsigned int count)
+{
+    while (count--)
+    {
+        if (0 != sem_post(&semaphore->m_Semaphore))
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool WaitSema(HSema semaphore)
+{
+    if (0 != sem_wait(&semaphore->m_Semaphore))
+    {
+        return false;
+    }
+    return true;
+}
+
+void DeleteSema(HSema semaphore)
+{
+    sem_destroy(&semaphore->m_Semaphore);
+}
+
 #    endif
 
 } // namespace nadir
