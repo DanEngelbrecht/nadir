@@ -512,7 +512,7 @@ HSema CreateSema(void* mem, unsigned int initial_count)
     HSema semaphore = (HSema)mem;
 
     mach_port_t self = mach_task_self();
-    kern_return_t ret = semaphore_create(self, &semaphore->m_Semaphore, SYNC_POLICY_FIFO, 0);
+    kern_return_t ret = semaphore_create(self, &semaphore->m_Semaphore, SYNC_POLICY_FIFO, initial_count);
 
     if (ret != KERN_SUCCESS)
     {
@@ -546,7 +546,7 @@ bool WaitSema(HSema semaphore)
 void DeleteSema(HSema semaphore)
 {
     mach_port_t self = mach_task_self();
-    semaphore_destroy(self, &semaphore->m_Semaphore);
+    semaphore_destroy(self, semaphore->m_Semaphore);
 }
 
 #    else
