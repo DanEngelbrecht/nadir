@@ -213,7 +213,7 @@ bool PostSema(HSema semaphore, unsigned int count)
 
 bool WaitSema(HSema semaphore)
 {
-    return WAIT_OBJECT_0 == ::WaitForSingleObject(semaphore->m_Handle, 0);
+    return WAIT_OBJECT_0 == ::WaitForSingleObject(semaphore->m_Handle, INFINITE);
 }
 
 void DeleteSema(HSema semaphore)
