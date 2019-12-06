@@ -72,6 +72,13 @@ void DeleteThread(HThread thread)
     thread->m_Handle = INVALID_HANDLE_VALUE;
 }
 
+size_t GetCPUCount()
+{
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return (size_t)sysinfo.dwNumberOfProcessors;
+}
+
 void Sleep(uint64_t timeout_us)
 {
     DWORD wait_ms = timeout_us == TIMEOUT_INFINITE ? INFINITE : (DWORD)(timeout_us / 1000);
@@ -364,6 +371,11 @@ void DeleteThread(HThread thread)
     DeleteConditionVariable(thread->m_ExitConditionalVariable);
     DeleteNonReentrantLock(thread->m_ExitLock);
     thread->m_Handle = 0;
+}
+
+size_t GetCPUCount()
+{
+   return (size_t)sysconf(_SC_NPROCESSORS_ONLN);
 }
 
 void Sleep(uint64_t timeout_us)

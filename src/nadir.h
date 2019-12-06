@@ -19,6 +19,7 @@ void    DeleteThread(HThread thread);
 
 static const uint64_t TIMEOUT_INFINITE = ((uint64_t)-1);
 
+size_t  GetCPUCount();
 void    Sleep(uint64_t timeout_us);
 
 typedef int32_t volatile TAtomic32;
